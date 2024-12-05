@@ -31,8 +31,6 @@ function ENT:OnToggleAI( name, old, new )
 		return
 	end
 
-	self:SetAIGunners( new )
-
 	if new == true then
 		local Driver = self:GetDriver()
 		

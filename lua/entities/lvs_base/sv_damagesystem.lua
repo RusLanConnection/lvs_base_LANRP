@@ -153,9 +153,8 @@ function ENT:CalcDamage( dmginfo )
 
 	if dmginfo:IsDamageType( self.DSArmorDamageReductionType ) then
 		if dmginfo:GetDamage() ~= 0 then
-			dmginfo:ScaleDamage( self.DSArmorDamageReduction )
-
-			dmginfo:SetDamage( math.max(dmginfo:GetDamage(),1) )
+			dmginfo:ScaleDamage(self.DSArmorDamageReduction)
+			dmginfo:SetDamage( math.max(dmginfo:GetDamage(), 1) )
 		end
 	end
 
@@ -175,7 +174,6 @@ function ENT:CalcDamage( dmginfo )
 
 	if dmginfo:GetDamageForce():Length() < self.DSArmorIgnoreForce and not IsFireDamage then return end
 
-	
 	if not IsCollisionDamage then
 		CriticalHit = self:CalcComponentDamage( dmginfo )
 	end
@@ -209,9 +207,13 @@ function ENT:CalcDamage( dmginfo )
 	if NewHealth <= 0 then
 		self.FinalAttacker = dmginfo:GetAttacker() 
 		self.FinalInflictor = dmginfo:GetInflictor()
+
 		self:SetDestroyed( IsCollisionDamage )
 
 		self:ClearPDS()
+
+		self.FinalAttacker = dmginfo:GetAttacker() 
+		self.FinalInflictor = dmginfo:GetInflictor()
 
 		local Attacker = self.FinalAttacker
 		if IsValid( Attacker ) and Attacker:IsPlayer() then
@@ -386,8 +388,6 @@ function ENT:SetDestroyed( SuppressOnDestroy )
 	if self.Destroyed then return end
 
 	self.Destroyed = true
-
-	hook.Run( "LVS.OnVehicleDestroyed", self, self.FinalAttacker, self.FinalInflictor )
 
 	hook.Run( "LVS.UpdateRelationship", self )
 

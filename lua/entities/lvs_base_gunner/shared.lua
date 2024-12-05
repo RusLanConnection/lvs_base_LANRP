@@ -22,8 +22,6 @@ function ENT:SetupDataTables()
 
 	self:NetworkVar( "Float", 0, "NWHeat" )
 
-	self:NetworkVar( "Bool", 0, "NWOverheated" )
-
 	self:NetworkVar( "Vector", 0, "NWAimVector" )
 
 	if SERVER then
@@ -58,7 +56,7 @@ function ENT:GetAI()
 
 	if not IsValid( veh ) then return false end
 
-	return veh:GetAIGunners()
+	return veh:GetAI()
 end
 
 function ENT:GetAITEAM()

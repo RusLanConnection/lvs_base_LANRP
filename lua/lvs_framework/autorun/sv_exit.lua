@@ -10,145 +10,129 @@ hook.Add( "PlayerLeaveVehicle", "!!LVS_Exit", function( ply, Pod )
 
 	if not IsValid( Vehicle ) then return end
 
-	if not LVS.FreezeTeams then
+	if not LVS.FreezeTeams:GetBool() then
 		ply:lvsSetAITeam( Vehicle:GetAITEAM() )
 	end
 
 	ply._lvsNextUse = CurTime() + 0.25
 
-	hook.Run( "LVS.UpdateRelationship", Vehicle )
-
-	local pos = Vehicle:LocalToWorld( Vehicle:OBBCenter() )
-	local vel = Vehicle:GetVelocity()
+	local Center = Vehicle:LocalToWorld( Vehicle:OBBCenter() )
+	local Vel = Vehicle:GetVelocity()
 	local radius = Vehicle:BoundingRadius()
 
-	local mins, maxs = ply:GetHull()
+	local HullMin, HullMax = ply:GetHull()
+	local FilterPlayer = { Pod, ply }
+	local FilterAll = { Pod, ply, Vehicle }
 
-	local PosCenter = Pod:OBBCenter()
-	local StartPos = Pod:LocalToWorld( PosCenter )
-
-	local FilterPlayer = { ply }
-	local Filter = table.Copy( Vehicle:GetCrosshairFilterEnts() )
-	table.insert( Filter, ply )
-
-	local zOffset = 15
-	local ValidPositions = {}
-
-	if isvector( Pod.ExitPos ) and Vehicle:GetUp().z > 0.9 then 
-		local data = {
-			pos = Vehicle:LocalToWorld( Pod.ExitPos ),
-			dist = 1,
-		}
-
-		table.insert( ValidPositions, data )
-	end
-
-	local LocalDesiredExitPosition = Vehicle:WorldToLocal( Pod:GetPos() )
-
-	if vel:Length() > (Pod.PlaceBehindVelocity or 100) then
-		LocalDesiredExitPosition.y = LocalDesiredExitPosition.y - radius
-
-		local traceBehind = util.TraceLine( {
-			start = pos,
-			endpos = pos - vel:GetNormalized() * (radius + 50),
-			filter = Filter,
-		} )
-
-		local tracePlayer = util.TraceHull( {
-			start = traceBehind.HitPos + Vector(0,0,maxs.z + zOffset),
-			endpos = traceBehind.HitPos + Vector(0,0,zOffset),
-			maxs = Vector( maxs.x, maxs.y, 0 ),
-			mins = Vector( mins.x, mins.y, 0 ),
-			filter = FilterPlayer,
-		} )
-
-		if not tracePlayer.Hit and util.IsInWorld( tracePlayer.HitPos ) then
-			local data = {
-				pos = traceBehind.HitPos,
-				dist = 0,
-			}
-
-			table.insert( ValidPositions, data )
+	for _, filterEntity in pairs( constraint.GetAllConstrainedEntities( Vehicle ) ) do
+		if IsValid( filterEntity ) then
+			table.insert( FilterAll, filterEntity )
 		end
 	end
 
-	local DesiredExitPosition = Pod:LocalToWorld( LocalDesiredExitPosition )
+	hook.Run( "LVS.UpdateRelationship", Vehicle )
 
-	for ang = 0, 360, 15 do
-		local X = math.cos( math.rad( ang ) ) * radius
-		local Y = math.sin( math.rad( ang ) ) * radius
-		local Z = Pod:OBBCenter().z
-
-		local EndPos = StartPos + Vector(X,Y,Z)
-
-		local traceWall = util.TraceLine( {start = StartPos,endpos = EndPos,filter = Filter} )
-		local traceVehicle = util.TraceLine( {
-			start = traceWall.HitPos,
-			endpos = StartPos,
-			filter = FilterPlayer,
+	if Vel:Length() > (Pod.PlaceBehindVelocity or 100) then
+		local tr = util.TraceHull( {
+			start = Center,
+			endpos = Center - Vel:GetNormalized() *  (radius + 50),
+			maxs = HullMax,
+			mins = HullMin,
+			filter = FilterAll
 		} )
 
-		local CenterWallVehicle = (traceWall.HitPos + traceVehicle.HitPos) * 0.5
+		local exitpoint = tr.HitPos + Vector(0,0,10)
 
-		if traceWall.Hit or not util.IsInWorld( CenterWallVehicle ) then continue end
+		if util.IsInWorld( exitpoint ) then
+			ply:SetPos( exitpoint )
+			ply:SetEyeAngles( (Center - exitpoint):Angle() )
+		end
+	else
+		if isvector( Pod.ExitPos ) then 
+			local exitpoint = Vehicle:LocalToWorld( Pod.ExitPos )
 
-		local GoundPos = CenterWallVehicle - Vector(0,0,radius)
+			if util.IsInWorld( exitpoint ) then
+				ply:SetPos( exitpoint )
+				ply:SetEyeAngles( (Pod:GetPos() - exitpoint):Angle() )
 
-		local traceGround = util.TraceLine( {start = CenterWallVehicle,endpos = GoundPos,filter = Filter} )
+				return
+			end
+		end
 
-		if not traceGround.Hit or not util.IsInWorld( traceGround.HitPos ) then continue end
+		local PodPos = Pod:LocalToWorld( Vector(0,0,10) )
 
-		local tracePlayerRoof = util.TraceHull( {
-			start = traceGround.HitPos + Vector(0,0,zOffset),
-			endpos = traceGround.HitPos + Vector(0,0,maxs.z + zOffset),
-			maxs = Vector( maxs.x, maxs.y, 0 ),
-			mins = Vector( mins.x, mins.y, 0 ),
-			filter = FilterPlayer,
+		local PodDistance = 130
+		local AngleStep = 45
+
+		local StartAngle = 135
+
+		local W = ply:KeyDown( IN_FORWARD )
+		local A = ply:KeyDown( IN_MOVELEFT ) or ply:KeyDown( IN_BACK )
+		local D = ply:KeyDown( IN_MOVERIGHT )
+
+		if W or A or D then
+			if A then StartAngle = 180 end
+			if D then StartAngle = 0 end
+			if W then if D then StartAngle = -45 else StartAngle = 225 end end
+		end
+
+		for ang = StartAngle, (StartAngle + 360 - AngleStep), AngleStep do
+			local X = math.Round( math.cos( math.rad( -ang ) ) * PodDistance )
+			local Y = math.Round( math.sin( math.rad( -ang ) ) * PodDistance )
+			local Z = Pod:WorldToLocal( Center ).z
+
+			local EndPos = Pod:LocalToWorld( Vector(X,Y,Z) )
+
+			local HitWall = util.TraceLine( {start = PodPos,endpos = EndPos,filter = FilterAll} ).Hit
+
+			if not util.IsInWorld( EndPos ) then continue end
+
+			if HitWall then continue end
+
+			local HitVehicle = util.TraceHull( {
+				start = EndPos,
+				endpos = EndPos + Vector(0,0,1),
+				maxs = HullMax,
+				mins = HullMin,
+				filter = FilterPlayer
+			} ).Hit
+
+			if HitVehicle then continue end
+
+			ply:SetPos( EndPos )
+			ply:SetEyeAngles( (Pod:GetPos() - EndPos):Angle() )
+
+			return
+		end
+
+		local tr = util.TraceHull( {
+			start = PodPos,
+			endpos = PodPos - Vector(0,0,PodDistance + HullMax.z),
+			maxs = Vector(HullMax.x,HullMax.y,0),
+			mins = HullMin,
+			filter = FilterAll
 		} )
 
-		if tracePlayerRoof.Hit or not util.IsInWorld( tracePlayerRoof.HitPos ) then continue end
+		local exitpoint = tr.HitPos
 
-		local tracePlayer = util.TraceHull( {
-			start = traceGround.HitPos + Vector(0,0,maxs.z + zOffset),
-			endpos = traceGround.HitPos + Vector(0,0,zOffset),
-			maxs = Vector( maxs.x, maxs.y, 0 ),
-			mins = Vector( mins.x, mins.y, 0 ),
-			filter = FilterPlayer,
-		} )
+		if not tr.Hit and util.IsInWorld( exitpoint ) then
+			ply:SetPos( exitpoint )
+			ply:SetEyeAngles( (PodPos - exitpoint):Angle() )
+		else
+			local exitpoint = util.TraceHull( {
+				start = PodPos,
+				endpos = PodPos + Vector(0,0,PodDistance),
+				maxs = HullMax,
+				mins = HullMin,
+				filter = FilterAll
+			} ).HitPos
 
-		if tracePlayer.Hit then continue end
-
-		local traceBack = util.TraceLine( {
-			start = tracePlayer.HitPos + Vector(0,0,zOffset),
-			endpos = StartPos,
-			filter = FilterPlayer,
-		} )
-
-		local data = {
-			pos = tracePlayer.HitPos,
-			dist = (traceBack.HitPos - DesiredExitPosition):Length(),
-		}
-
-		table.insert( ValidPositions, data )
-	end
-
-	local ExitPos
-	local ExitDist
-
-	for _, data in pairs( ValidPositions ) do
-		if not ExitPos or not ExitDist or ExitDist > data.dist then
-			ExitPos = data.pos
-			ExitDist = data.dist
+			if util.IsInWorld( exitpoint ) then
+				ply:SetPos( exitpoint )
+				ply:SetEyeAngles( (PodPos - exitpoint):Angle() )
+			else
+				ply:SetPos( PodPos )
+			end
 		end
 	end
-
-	-- all my plans failed, lets just let source do its thing
-	if not ExitPos then return end
-
-	local ViewAngles = (StartPos - ExitPos):Angle()
-	ViewAngles.p = 0
-	ViewAngles.r = 0
-
-	ply:SetPos( ExitPos )
-	ply:SetEyeAngles( ViewAngles )
 end )

@@ -85,6 +85,7 @@ if SERVER then
 			end
 		end
 	
+		print(DamageForce, ArmorEffective)
 		if DamageForce <= ArmorEffective then
 			local T = CurTime()
 

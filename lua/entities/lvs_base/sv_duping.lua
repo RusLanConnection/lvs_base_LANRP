@@ -1,24 +1,7 @@
 
 -- attempt at fixing dupe support
 
-function ENT:PostEntityPaste( Player, Ent, CreatedEntities )
-
-	if isnumber( self._DuplicatorRestoreMaxHealthTo ) then
-		self.MaxHealth = self._DuplicatorRestoreMaxHealthTo
-	end
-
-	if self.SetlvsReady then
-		self:SetlvsReady( false )
-	end
-
-	if self.SetActive then
-		self:SetActive( false )
-	end
-
-	if self.SetEngineActive then
-		self:SetEngineActive( false )
-	end
-
+function ENT:PostEntityPaste(Player,Ent,CreatedEntities)
 	if not self.SetAI then return end
 	
 	if IsValid( Player ) and Player:IsAdmin() then return end
@@ -26,30 +9,51 @@ function ENT:PostEntityPaste( Player, Ent, CreatedEntities )
 	self:SetAI( false )
 end
 
-function ENT:OnEntityCopyTableFinish( data )
-	data.CrosshairFilterEnts = nil
-	data.pPodKeyIndex = nil
-	data.pSeats = nil
-	data.WEAPONS = nil
+local Active
+local EngineActive
+local CrosshairFilterEnts
+local DoorHandlers
+local pPodKeyIndex
+local pSeats
 
-	-- everything with "_" at the start, usually temporary variables or variables used for timing. This will fix vehicles that are saved at a high curtime and then being spawned on a fresh server with low curtime
-	for id, _ in pairs( data ) do
-		if not string.StartsWith( id, "_" ) then continue end
+function ENT:PreEntityCopy()
+	Active = self:GetActive()
+	EngineActive = self:GetEngineActive()
 
-		data[ id ] = nil
-	end
+	self:SetlvsReady( false )
+	self:SetActive( false )
+	self:SetEngineActive( false )
 
-	data._DuplicatorRestoreMaxHealthTo = self:GetMaxHP()
+	CrosshairFilterEnts = self.CrosshairFilterEnts
+	DoorHandlers = self._DoorHandlers
+	pSeats = self.pSeats
+	pPodKeyIndex = self.pPodKeyIndex
 
-	-- all functions need to go
-	for id, entry in pairs( data ) do
-		if not isfunction( entry ) then continue end
+	self.CrosshairFilterEnts = nil
+	self._DoorHandlers = nil
+	self.pPodKeyIndex = nil
+	self.pSeats = nil
+end
 
-		data[ id ] = nil
-	end
+function ENT:PostEntityCopy()
+	timer.Simple(0, function()
+		if not IsValid( self ) then return end
 
-	-- stuff below is things like constraints or DeleteOnRemove still referencing the old object. These need to go
-	data.OnDieFunctions = nil
-	data.Constraints = nil
-	data._children = nil
+		self:SetlvsReady( true )
+		self:SetActive( Active )
+		self:SetEngineActive( EngineActive )
+
+		Active = nil
+		EngineActive = nil
+	end)
+
+	self.CrosshairFilterEnts = CrosshairFilterEnts
+	self._DoorHandlers = DoorHandlers
+	self.pPodKeyIndex = pPodKeyIndex
+	self.pSeats = pSeats
+
+	CrosshairFilterEnts = nil
+	DoorHandlers = nil
+	pSeats = nil
+	pPodKeyIndex = nil
 end

@@ -97,20 +97,8 @@ function ENT:TakeAmmo( num )
 	self:SetNWAmmo( CurWeapon._CurAmmo )
 end
 
-function ENT:GetHeat( weaponid )
-	local CurWeapon
-
-	if isnumber( weaponid ) and weaponid > 0 then
-		local Base = self:GetVehicle()
-
-		if IsValid( Base ) then
-			CurWeapon = Base.WEAPONS[ self:GetPodIndex() ][ weaponid ]
-		else
-			CurWeapon = self:GetActiveWeapon()
-		end
-	else
-		CurWeapon = self:GetActiveWeapon()
-	end
+function ENT:GetHeat()
+	local CurWeapon = self:GetActiveWeapon()
 
 	if not CurWeapon then return 0 end
 
@@ -133,8 +121,6 @@ function ENT:SetOverheated( overheat )
 	if not CurWeapon then return end
 
 	CurWeapon.Overheated = overheat
-
-	self:SetNWOverheated( overheat )
 
 	if self:GetHeat() == 0 then return end
 
@@ -291,7 +277,6 @@ function ENT:OnWeaponChanged( name, old, new)
 	if NextWeapon and NextWeapon.OnSelect then
 		NextWeapon.OnSelect( self )
 		self:SetNWAmmo( NextWeapon._CurAmmo or NextWeapon.Ammo or -1 )
-		self:SetNWOverheated( NextWeapon.Overheated == true )
 	end
 end
 

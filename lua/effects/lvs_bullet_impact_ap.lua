@@ -56,7 +56,6 @@ function EFFECT:Init( data )
 
 	local bullet_dir = data:GetStart()
 	local dir = data:GetNormal()
-	local magnitude = data:GetMagnitude()
 
 	local ent = data:GetEntity()
 	local surface = data:GetSurfaceProp()
@@ -191,7 +190,7 @@ function EFFECT:Init( data )
 			particle:SetStartSize( 5 )
 			particle:SetDieTime( math.Rand(0.5, 1) )
 			particle:SetEndSize( math.Rand(15, 30) )
-			particle:SetVelocity( (dir * math.Rand(80, 400) + VectorRand() * 100) * 1.5 )
+			particle:SetVelocity( (dir * math.Rand(40, 200) + VectorRand() * 50) * 1.5 )
 		end
     
 		for n = 0,6 do
@@ -199,7 +198,7 @@ function EFFECT:Init( data )
 
 			if not particle then continue end
 
-			particle:SetVelocity( (dir * 50 * i + VectorRand() * 50) )
+			particle:SetVelocity( (dir * 25 * i + VectorRand() * 25) )
 			particle:SetDieTime( (i / 8) * DieTime )
 			particle:SetAirResistance( 10 ) 
 			particle:SetStartAlpha( 255 )

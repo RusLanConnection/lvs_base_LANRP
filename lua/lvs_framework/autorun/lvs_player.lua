@@ -1,7 +1,7 @@
 local meta = FindMetaTable( "Player" )
 
 function meta:lvsGetAITeam()
-	return self:GetNWInt( "lvsAITeam", LVS.PlayerDefaultTeam )
+	return self:GetNWInt( "lvsAITeam", LVS.PlayerDefaultTeam:GetInt() )
 end
 
 function meta:lvsGetVehicle()
@@ -160,9 +160,9 @@ local function GetInput( ply, name )
 			ply._lvsKeyDown = {}
 		end
 
-		return ply._lvsKeyDown[ name ] == true
+		return ply._lvsKeyDown[ name ]
 	else
-		local Key = ply:lvsGetControls()[ name ] or 0
+		local Key = ply:lvsGetControls()[ name ]
 
 		if IS_MOUSE_ENUM[ Key ] then
 			return input.IsMouseDown( Key ) 
@@ -204,20 +204,6 @@ function meta:lvsSetInputDisabled( disable )
 end
 
 if CLIENT then
-	function meta:lvsSetView( view )
-		self._lvsViewPos = view.origin or vector_origin
-		self._lvsViewAngles = view.angles or angle_zero
-
-		return view
-	end
-
-	function meta:lvsGetView()
-		local pos = self._lvsViewPos or vector_origin
-		local ang = self._lvsViewAngles or angle_zero
-
-		return pos, ang
-	end
-
 	net.Receive( "lvs_buildcontrols", function( len )
 		local ply = LocalPlayer()
 		if not IsValid( ply ) then return end
@@ -278,7 +264,7 @@ LVS.TEAMS = {
 }
 
 function meta:lvsSetAITeam( nTeam )
-	nTeam = nTeam or LVS.PlayerDefaultTeam
+	nTeam = nTeam or LVS.PlayerDefaultTeam:GetInt()
 
 	if self:lvsGetAITeam() ~= nTeam then
 		self:PrintMessage( HUD_PRINTTALK, "[LVS] Your AI-Team has been updated to: "..(LVS.TEAMS[ nTeam ] or "") )
