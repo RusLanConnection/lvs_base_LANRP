@@ -18,6 +18,7 @@ include("sv_physics_damagesystem.lua")
 include("sv_damagesystem.lua")
 include("sv_shieldsystem.lua")
 include("sv_doorsystem.lua")
+--include("sv_jmod.lua")
 
 ENT.WaterLevelPreventStart = 1
 ENT.WaterLevelAutoStop = 2

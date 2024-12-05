@@ -180,11 +180,11 @@ if SERVER then
 
 		local effectdata = EffectData()
 			effectdata:SetOrigin( Pos )
+			effectdata:SetScale( self:GetRadius() / 100)
 		util.Effect( self.ExplosionEffect, effectdata )
 
 		if IsValid( target ) and not target:IsNPC() then
 			Pos = target:GetPos() -- place explosion inside the hit targets location so they receive full damage. This fixes all the garbage code the LFS' missile required in order to deliver its damage
-
 			if isfunction( target.GetBase ) then
 				local Base = target:GetBase()
 
@@ -293,12 +293,10 @@ hook.Add( "HUDPaint", "!!!!lvs_bomb_hud", function()
 		end
 
 		local Grav = physenv.GetGravity()
-		local FT = 0.05
-		local MissilePos = Missile:GetPos()
-		local Pos = MissilePos
+		local FT = 0.05 -- RealFrameTime()
+		local Pos = Missile:GetPos()
 		local Vel = Missile:GetSpeed()
 
-		local LastColor = color_red
 		local Mask = Missile.GetMaskSolid and (Missile:GetMaskSolid() and MASK_SOLID or MASK_SOLID_BRUSHONLY) or MASK_SOLID_BRUSHONLY
 
 		cam.Start3D()
@@ -317,15 +315,7 @@ hook.Add( "HUDPaint", "!!!!lvs_bomb_hud", function()
 				mask = Mask,
 			} )
 
-			local traceVisible = util.TraceLine( {
-				start = MissilePos,
-				endpos = StartPos,
-				mask = Mask,
-			} )
-
-			LastColor = traceVisible.Hit and color_red_blocked or color_red
-
-			render.DrawLine( StartPos, EndPos, LastColor )
+			render.DrawLine( StartPos, EndPos, color_red )
 
 			Pos = EndPos
 
@@ -339,7 +329,7 @@ hook.Add( "HUDPaint", "!!!!lvs_bomb_hud", function()
 
 		if not TargetPos.visible then continue end
 
-		surface.DrawCircle( TargetPos.x, TargetPos.y, 20, LastColor )
+		surface.DrawCircle( TargetPos.x, TargetPos.y, 20, color_red )
 	end
 end )
 

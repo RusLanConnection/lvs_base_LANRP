@@ -54,9 +54,9 @@ hook.Add( "VehicleMove", "!!!!lvs_vehiclemove", function( ply, vehicle, mv )
 	if ply._lvsOldThirdPerson ~= KeyThirdPerson then
 		ply._lvsOldThirdPerson = KeyThirdPerson
 
-		if KeyThirdPerson and vehicle.SetThirdPersonMode then
+		--[[if KeyThirdPerson and vehicle.SetThirdPersonMode then
 			vehicle:SetThirdPersonMode( not vehicle:GetThirdPersonMode() )
-		end
+		end]]
 	end
 
 	return true

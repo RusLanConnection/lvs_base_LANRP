@@ -1,5 +1,5 @@
 
-ENT.DSArmorBulletPenetrationType = DMG_AIRBOAT + DMG_SNIPER
+ENT.DSArmorBulletPenetrationType = DMG_AIRBOAT + DMG_SNIPER + DMG_BULLET
 
 function ENT:AddArmor( pos, ang, mins, maxs, health, minforce )
 	local Armor = ents.Create( "lvs_armor" )
@@ -34,7 +34,7 @@ function ENT:AddArmor( pos, ang, mins, maxs, health, minforce )
 		maxs = maxs,
 		Callback = function( tbl, ent, dmginfo )
 			if not IsValid( Armor ) or not dmginfo:IsDamageType( self.DSArmorBulletPenetrationType ) then return true end
-	
+
 			local MaxHealth = self:GetMaxHP()
 			local MaxArmor = Armor:GetMaxHP()
 			local Damage = dmginfo:GetDamage()

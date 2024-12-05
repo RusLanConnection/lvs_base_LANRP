@@ -13,10 +13,55 @@ ENT.AdminOnly		= true
 ENT.ExplosionEffect = "lvs_explosion_small"
 
 ENT.lvsProjectile = true
+ENT.NextRedirectCheck = 0
 
 function ENT:SetupDataTables()
 	self:NetworkVar( "Bool", 0, "Active" )
 	self:NetworkVar( "Entity", 0, "NWTarget" )
+end
+
+local function calculateOptimalIntercept(positions, pro_start, pro_vel, target)
+    local bestTime = math.huge
+	pro_vel = pro_vel:Length()
+
+    for i = 1, #positions do -- проходимся по всем позициям
+        local distance = positions[i]:Distance(pro_start) -- считаем от начала координат
+        local travelTime = distance / pro_vel
+
+        if travelTime < bestTime then
+            bestTime = travelTime
+            bestVector = LerpVector( 0.2, positions[i], target:GetPos() ) -- вектор до позиции ракеты
+        end
+    end
+
+	for i = 1, #positions do -- проходимся по всем позициям
+        local distance = positions[i]:Distance(bestVector) -- считаем от начала координат
+        local travelTime = distance / pro_vel
+
+        if travelTime < bestTime then
+            bestTime = travelTime
+            bestVector2 = positions[i]
+        end
+    end
+    
+    return bestVector2 -- возвращаем нормализованный вектор скорости
+end
+
+
+local function FindBestPos(positions, pro_start, pro_vel)
+	local dists = {} -- таблица дистанций
+
+	for i = 1, #positions do -- проходимся по всем позициям
+		local pos = pro_start + (pro_vel * i) -- вычисляем позицию ракеты ПРО 
+		local dist = pos:Distance(positions[i]) -- вычисляем дистанцию от яд. ракеты до ракеты ПРО
+
+		dists[i] = {dist, positions[i]}
+	end
+
+	table.sort(dists, function(a, b) return a[1] > b[1] end)
+
+	local best = dists[1] -- лучшая позиция, второй элемент в этой таблице - позиция яд. ракеты
+	return best[2]
 end
 
 if SERVER then
@@ -24,12 +69,13 @@ if SERVER then
 
 	function ENT:GetAvailableTargets()
 		local targets = {
-			[1] = player.GetAll(),
-			[2] = LVS:GetVehicles(),
-			[3] = LVS:GetNPCs(),
-		}
+            [1] = player.GetAll(),
+            [2] = LVS:GetVehicles(),
+            [3] = LVS:GetNPCs(),
+            --[4] = UF:GetFlares(),
+        }
 
-		return targets
+        return targets
 	end
 
 	function ENT:FindTarget( pos, forward, cone_ang, cone_len )
@@ -87,7 +133,52 @@ if SERVER then
 			self._FilterEnts[ ent ] = true
 		end
 	end
-	function ENT:SetTarget( ent ) self:SetNWTarget( ent ) end
+
+	function ENT:SetTarget( ent ) 
+		local oldTarget = self:GetNWTarget()
+		if (IsValid(ent) and isfunction(ent.OnLaserLock)) then
+			ent:OnLaserLock(true)
+		end
+
+		if (oldTarget ~= ent and IsValid(oldTarget) and isfunction(oldTarget.OnLaserLock)) then
+			oldTarget:OnLaserLock(false)
+		end
+
+		self:SetNWTarget(ent)
+
+		--print(self:GetSpeed(), self:GetTurnSpeed())
+		if ent:GetClass() == "ent_jack_gmod_eznukerocket" then
+			self:SetThrust(0.5)
+			self:SetSpeed(100000)
+			self:SetTurnSpeed(4)
+
+			self.FuturePos = self:GetPos() + Vector(0,0, 100)
+
+			timer.Simple(0.1, function()
+				if not (IsValid(self) or IsValid(ent)) then return end
+
+				local _, vel, _ = self:PhysicsSimulate(self:GetPhysicsObject(), FrameTime())
+				vel2 = self:GetVelocity()
+
+				self.FuturePos = calculateOptimalIntercept(ent:calculateRocketPosition(), self:GetPos(), vel2, ent)
+
+				debugoverlay.Line(self:GetPos(), self.FuturePos, 1, Color( 255, 255, 255 ))
+			end)
+				
+			timer.Create("CalcFuturePos " .. self:EntIndex(), 1, 3, function()
+				if not (IsValid(self) or IsValid(ent)) then return end
+
+				local _, vel, _ = self:PhysicsSimulate(self:GetPhysicsObject(), FrameTime())
+				vel2 = self:GetVelocity()
+
+				self.FuturePos = calculateOptimalIntercept(ent:calculateRocketPosition(), self:GetPos(), vel2, ent)
+
+				debugoverlay.Line(self:GetPos(), self.FuturePos, 1, Color( 255, 255, 255 ))
+			end)
+			--print(self:GetSpeed(), self:GetTurnSpeed())
+		end
+	end
+
 	function ENT:SetDamage( num ) self._dmg = num end
 	function ENT:SetThrust( num ) self._thrust = num end
 	function ENT:SetSpeed( num ) self._speed = num end
@@ -98,7 +189,7 @@ if SERVER then
 	function ENT:GetAttacker() return self._attacker or NULL end
 	function ENT:GetDamage() return (self._dmg or 100) end
 	function ENT:GetRadius() return (self._radius or 250) end
-	function ENT:GetSpeed() return (self._speed or 4000) end
+	function ENT:GetSpeed() return (self._speed or 2000) end
 	function ENT:GetTurnSpeed() return (self._turnspeed or 1) * 100 end
 	function ENT:GetThrust() return (self._thrust or 500) end
 	function ENT:GetTarget()
@@ -115,13 +206,21 @@ if SERVER then
 
 			local LooseAng = math.min( Len / 100, 90 )
 
-			if AngToTarget > LooseAng then
+			if (AngToTarget > LooseAng) and self:GetNWTarget():GetClass() != "ent_jack_gmod_eznukerocket" then
 				self:SetNWTarget( NULL )
+			end
+
+			if IsValid(self:GetNWTarget()) then
+				if self:GetNWTarget():GetClass() == "ent_jack_gmod_eznukerocket" and self:GetNWTarget():GetState() == -1 then
+					self:SetNWTarget( NULL )
+				end
 			end
 		end
 
 		return self:GetNWTarget()
 	end
+	
+
 	function ENT:GetTargetPos()
 		local Target = self:GetNWTarget()
 
@@ -134,10 +233,32 @@ if SERVER then
 		end
 
 		if isfunction( Target.GetMissileOffset ) then
-			return Target:LocalToWorld( Target:GetMissileOffset() )
+			if Target:GetClass() == "unity_flare" then
+				return Target:GetPos()
+			end
+			return Target:GetPos() + Target:GetPhysicsObject():GetVelocity() / 4--Target:LocalToWorld( Target:GetMissileOffset() )
 		end
 
-		return Target:GetPos()
+		if Target:GetClass() == "unity_flare" then
+			return Target:GetPos()
+		end
+
+		if Target:GetClass() == "ent_jack_gmod_eznukerocket" then
+			if self:GetPos():Distance(Target:GetPos()) > 1100 then
+				self:SetThrust(0.5)
+				return self.FuturePos
+			else
+				self:SetThrust(100)
+				return Target:GetPos() + Target:GetPhysicsObject():GetVelocity() * 0.1
+			end
+
+			if self:GetPos():Distance(Target:GetPos()) < 600 then
+				Target:Break()
+			end
+
+		else
+			return Target:GetPos() + Target:GetPhysicsObject():GetVelocity() * 10
+		end
 	end
 
 	function ENT:SpawnFunction( ply, tr, ClassName )
@@ -209,9 +330,10 @@ if SERVER then
 		local Thrust = self:GetThrust()
 		local Speed = self:GetSpeed()
 		local Pos = self:GetPos()
-		local velL = self:WorldToLocal( Pos + self:GetVelocity() )
+		local velL = self:WorldToLocal( Pos + self:GetVelocity() * 5 )
 
-		local ForceLinear = (Vector( Speed * Thrust,0,0) - velL) * deltatime
+		local ForceLinear = (Vector(Speed * Thrust, 0, 0) - velL) * deltatime
+		--print(ForceLinear)
 
 		local Target = self:GetTarget()
 
@@ -219,6 +341,7 @@ if SERVER then
 			return (-phys:GetAngleVelocity() * 250 * deltatime), ForceLinear, SIM_LOCAL_ACCELERATION
 		end
 
+		--print(self:GetTargetPos())
 		local AngForce = -self:WorldToLocalAngles( (self:GetTargetPos() - Pos):Angle() )
 
 		local ForceAngle = (Vector(AngForce.r,-AngForce.p,-AngForce.y) * self:GetTurnSpeed() - phys:GetAngleVelocity() * 5 ) * 250 * deltatime
@@ -226,7 +349,7 @@ if SERVER then
 		return ForceAngle, ForceLinear, SIM_LOCAL_ACCELERATION
 	end
 
-	function ENT:Think()	
+	function ENT:Think()
 		local T = CurTime()
 
 		self:NextThink( T + 1 )
@@ -236,6 +359,35 @@ if SERVER then
 		if (self.SpawnTime + 12) < T then
 			self:Detonate()
 		end
+
+		if CLIENT then return true end
+
+        local target = self:GetNWTarget()
+        if (self.NextRedirectCheck < CurTime() and (IsValid(target) and target:GetClass() or "") ~= "unity_flare") then
+            local redirectFlare = nil
+            for i, v in ipairs(UF:GetFlares()) do
+                if (not IsValid(self:GetPhysicsObject())) then goto con end
+
+                local isInCone = util.IsPointInCone(v:GetPos(), self:GetPos(), self:GetForward(), math.sin(15 / 180 * math.pi), 5000)
+                debugoverlay.Line(self:GetPos(), self:GetPos() + self:GetForward() * 8192, 10, Color( 255, 255, 255 ))
+
+                if (isInCone) then
+                    redirectFlare = v
+                    break
+                end
+
+                ::con::
+            end
+
+            if (IsValid(redirectFlare)) then
+                self:SetTarget(redirectFlare)
+                self:NextThink(CurTime() + 1)
+            else
+                self:NextThink(CurTime())
+            end
+
+            self.NextRedirectCheck = CurTime()
+        end
 
 		return true
 	end

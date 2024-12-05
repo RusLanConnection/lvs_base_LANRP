@@ -19,10 +19,15 @@ SWEP.Secondary.DefaultClip	= -1
 SWEP.Secondary.Automatic		= false
 SWEP.Secondary.Ammo		= "none"
 
+SWEP.EZconsumes = {JMod.EZ_RESOURCE_TYPES.POWER, JMod.EZ_RESOURCE_TYPES.GAS}
+SWEP.MaxGas = 200
+
 SWEP.MaxRange = 250
 
 function SWEP:SetupDataTables()
-	self:NetworkVar( "Float",0, "FlameTime" )
+	self:NetworkVar("Float", 2, "FlameTime" )
+	--self:NetworkVar("Float", 0, "Electricity")
+	self:NetworkVar("Float", 1, "Gas")
 end
 
 function SWEP:GetLVS()
@@ -135,6 +140,8 @@ if CLIENT then
 	end
 
 	function SWEP:DrawEffects( weapon, ply )
+		--if self:GetElectricity() <= 0 or self:GetGas() <= 0 then return end
+
 		local ID = weapon:LookupAttachment( "muzzle" )
 
 		local Muzzle = weapon:GetAttachment( ID )
@@ -193,6 +200,11 @@ if CLIENT then
 	function SWEP:DrawHUD()
 		local ply = self:GetOwner()
 
+		local W, H = ScrW(), ScrH()
+
+		--draw.SimpleTextOutlined("Power: "..math.floor(self:GetElectricity()), "Trebuchet24", W * .1, H * .5, Color(255, 255, 255, 70), TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP, 3, Color(0, 0, 0, 50))
+		draw.SimpleTextOutlined("Gas: "..math.floor(self:GetGas()), "Trebuchet24", W * .1, H * .5 + 30, Color(255, 255, 255, 70), TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP, 3, Color(0, 0, 0, 50))
+
 		if not IsValid( ply ) or not ply:KeyDown( IN_ATTACK2 ) then
 			local lvsEnt = self:GetLVS()
 			local Pos = ply:GetEyeTrace().HitPos
@@ -244,10 +256,15 @@ end
 
 function SWEP:Initialize()
 	self:SetHoldType( self.HoldType )
+
+	self:SetGas(0)
+	--self:SetElectricity(0)
 end
 
 function SWEP:PrimaryAttack()
 	local T = CurTime()
+
+	if --[[(self:GetElectricity() <= 0) or ]](self:GetGas() <= 0) then self:StopSND() return end
 
 	self:SetNextPrimaryFire( T + 0.15 )
 
@@ -267,6 +284,8 @@ function SWEP:PrimaryAttack()
 
 			local AimPos = ply:GetEyeTrace().HitPos
 
+			debugoverlay.Cross(AimPos, 5, 1, Color(255,0,0), true)
+			
 			EngineMode = IsEngineMode( AimPos, Engine )
 
 			if IsValid( Engine ) and EngineMode then
@@ -277,7 +296,14 @@ function SWEP:PrimaryAttack()
 		ArmorMode = false
 	end
 
-	if not IsValid( Target ) then return end
+	if not IsValid( Target ) then
+		local ent = ply:GetEyeTrace().Entity
+
+		if IsValid( ent ) and (ent:GetPos() - ply:GetShootPos()):Length() < self.MaxRange and ent:GetClass() == "lvs_item_mine" then
+			if SERVER then timer.Simple(0, function() if not IsValid( ent ) then return end ent:Detonate() end ) end
+		end
+		return
+	end
 
 	local HP = Target:GetHP()
 	local MaxHP = Target:GetMaxHP()
@@ -292,6 +318,9 @@ function SWEP:PrimaryAttack()
 			util.Effect( "stunstickimpact", effectdata, true, true )
 		end
 	end
+
+	--self:SetElectricity(math.max(self:GetElectricity() - 1, 0))
+	self:SetGas(math.max(self:GetGas() - 2, 0))
 
 	if CLIENT then return end
 
@@ -313,10 +342,56 @@ end
 function SWEP:SecondaryAttack()
 end
 
+function SWEP:GetEZsupplies(resourceType)
+	local AvaliableResources = {
+		--[JMod.EZ_RESOURCE_TYPES.POWER] = math.floor(self:GetElectricity()),
+		[JMod.EZ_RESOURCE_TYPES.GAS] = math.floor(self:GetGas())
+	}
+	if resourceType then
+		if AvaliableResources[resourceType] and AvaliableResources[resourceType] > 0 then
+			return AvaliableResources[resourceType]
+		else
+			return 
+		end
+	else
+		return AvaliableResources
+	end
+end
+
+function SWEP:SetEZsupplies(typ, amt, setter)
+	if not SERVER then print("[JMOD] - You can't set EZ supplies on client") return end
+	local ResourceSetMethod = self["Set"..JMod.EZ_RESOURCE_TYPE_METHODS[typ]]
+	if ResourceSetMethod then
+		ResourceSetMethod(self, amt)
+	end
+end
+
+function SWEP:TryLoadResource(typ, amt)
+	if amt < 1 then return 0 end
+	local Accepted = 0
+
+	for _, v in pairs(self.EZconsumes) do
+		if typ == v then
+			local CurAmt = self:GetEZsupplies(typ) or 0
+			local Take = math.min(amt, self.MaxGas - CurAmt)
+			
+			if Take > 0 then
+				self:SetEZsupplies(typ, CurAmt + Take)
+				sound.Play("snds_jack_gmod/gas_load.ogg", self:GetPos(), 65, math.random(90, 110))
+				Accepted = Take
+			end
+		end
+	end
+
+	return Accepted
+end
+
 function SWEP:Think()
 	local ply = self:GetOwner()
 
 	if not IsValid( ply ) then self:StopSND() return end
+
+	if self:GetGas() <= 0 then return end
 
 	local PlaySound = self:GetFlameTime() >= CurTime() and (ply:GetShootPos() - ply:GetEyeTrace().HitPos):Length() < self.MaxRange
 
@@ -361,3 +436,17 @@ function SWEP:Holster( wep )
 	self:StopSND()
 	return true
 end
+
+--[[function SWEP:DrawHUD()
+	if GetConVar("cl_drawhud"):GetBool() == false then return end
+	local Ply = self:GetOwner()
+	if Ply:ShouldDrawLocalPlayer() then return end
+	local W, H = ScrW(), ScrH()
+
+	draw.SimpleTextOutlined("Power: "..math.floor(self:GetElectricity()), "Trebuchet24", W * .1, H * .5, InfoTextColor, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP, 3, Color(0, 0, 0, 50))
+	draw.SimpleTextOutlined("Gas: "..math.floor(self:GetGas()), "Trebuchet24", W * .1, H * .5 + 30, InfoTextColor, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP, 3, Color(0, 0, 0, 50))
+
+	draw.SimpleTextOutlined("LMB: Repair", "Trebuchet24", W * .4, H * .7, Color(255, 255, 255, 30), TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP, 3, Color(0, 0, 0, 10))
+	draw.SimpleTextOutlined("RMB: Repair Armor", "Trebuchet24", W * .4, H * .7 + 30, Color(255, 255, 255, 30), TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP, 3, Color(0, 0, 0, 10))
+	draw.SimpleTextOutlined("Backspace: drop kit", "Trebuchet24", W * .4, H * .7 + 60, Color(255, 255, 255, 30), TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP, 3, Color(0, 0, 0, 10))
+end]]

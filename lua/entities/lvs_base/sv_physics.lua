@@ -95,7 +95,7 @@ function ENT:TakeCollisionDamage( damage, attacker )
 	end
 
 	local dmginfo = DamageInfo()
-	dmginfo:SetDamage( damage )
+	dmginfo:SetDamage( damage / 100)
 	dmginfo:SetAttacker( attacker )
 	dmginfo:SetInflictor( attacker )
 	dmginfo:SetDamageType( DMG_CRUSH + DMG_VEHICLE ) -- this will communicate to the damage system to handle this kind of damage differently.
@@ -162,5 +162,191 @@ function ENT:PhysicsCollide( data, physobj )
 		else
 			self:EmitSound( "lvs/physics/impact_soft"..math.random(1,5)..".wav", 75, 100, math.min(0.1 + VelDif / 700,1) )
 		end
+	end
+
+	self:TakeCustomBomb(data, physobj)
+
+	if data.Speed > 10 and data.DeltaTime > 0.2 and data.HitEntity:GetClass() == "ent_jack_gmod_ezfuel" then
+		local fuel = data.HitEntity
+		local FuelTank = self:GetFuelTank()
+
+		if self:GetVehicleType() == "LBaseTrailer" then return end
+		if FuelTank:GetSize() == FuelTank:GetFuel() then return end
+
+		local NeedFuel = FuelTank:GetSize() - FuelTank:GetFuel()
+		--local Accepted = fuel:GetResource() - NeedFuel
+
+		if NeedFuel < 200 then
+			fuel:SetResource(fuel:GetResource() - NeedFuel)
+
+			if fuel:GetResource() <= 0 then
+				timer.Simple(0.1, function()
+					SafeRemoveEntity(fuel)
+				end)
+			end
+
+			FuelTank:SetFuel(FuelTank:GetFuel() + NeedFuel)
+		else
+			FuelTank:SetFuel(FuelTank:GetFuel() + fuel:GetResource())
+			SafeRemoveEntity(fuel)
+		end
+
+		--fuel:SetResource(fuel:GetResource() - )
+		JMod.ResourceEffect(fuel.EZsupplies, fuel:LocalToWorld(fuel:OBBCenter()), self:LocalToWorld(self:OBBCenter()), fuel:GetResource(), 1, 1, 1)
+		self:OnRefueled()
+	end
+
+	if data.Speed > 10 and data.DeltaTime > 0.2 and data.HitEntity:GetClass() == "ent_jack_gmod_ezmunitions" then
+		local ammobox = data.HitEntity
+		local AmmoIsSet = false
+
+		for PodID, data in pairs( self.WEAPONS ) do
+			for id, weapon in pairs( data ) do
+				local MaxAmmo = weapon.Ammo or -1
+				local CurAmmo = weapon._CurAmmo or MaxAmmo
+
+				if MaxAmmo >= 100 then continue end
+
+				local NeedAmmo = (MaxAmmo - CurAmmo) * 20
+
+				print(NeedAmmo, CurAmmo)
+				if CurAmmo == MaxAmmo then continue end
+				if CurAmmo == -1 then continue end
+
+				if NeedAmmo < 200 then
+					ammobox:SetResource(ammobox:GetResource() - NeedAmmo)
+
+					if ammobox:GetResource() <= 0 then
+						timer.Simple(0.1, function()
+							SafeRemoveEntity(ammobox)
+						end)
+					end
+
+					self.WEAPONS[PodID][ id ]._CurAmmo = math.min( CurAmmo + NeedAmmo, MaxAmmo )
+					AmmoIsSet = true
+				else
+					self.WEAPONS[PodID][ id ]._CurAmmo = math.min( CurAmmo + ammobox:GetResource() / 20, MaxAmmo )
+					SafeRemoveEntity(ammobox)
+					AmmoIsSet = true
+				end
+			end
+		end
+
+		if AmmoIsSet then
+			self:SetNWAmmo( self:GetAmmo() )
+
+			for _, pod in pairs( self:GetPassengerSeats() ) do
+				local weapon = pod:lvsGetWeapon()
+
+				if not IsValid( weapon ) then continue end
+
+				weapon:SetNWAmmo( weapon:GetAmmo() )
+			end
+
+			JMod.ResourceEffect(ammobox.EZsupplies, ammobox:LocalToWorld(ammobox:OBBCenter()), self:LocalToWorld(self:OBBCenter()), ammobox:GetResource(), 1, 1, 1)
+			self:OnRefueled()
+		end
+	end
+
+	if data.Speed > 10 and data.DeltaTime > 0.2 and data.HitEntity:GetClass() == "ent_jack_gmod_ezammo" then
+		local ammobox = data.HitEntity
+		local AmmoIsSet = false
+
+		for PodID, data in pairs( self.WEAPONS ) do
+			for id, weapon in pairs( data ) do
+				local MaxAmmo = weapon.Ammo or -1
+				local CurAmmo = weapon._CurAmmo or MaxAmmo
+
+				if MaxAmmo <= 100 then continue end
+
+				local NeedAmmo = (MaxAmmo - CurAmmo) / 2
+
+				print(NeedAmmo, CurAmmo)
+				if CurAmmo == MaxAmmo then continue end
+				if CurAmmo == -1 then continue end
+
+				if NeedAmmo < 200 then
+					ammobox:SetResource(ammobox:GetResource() - NeedAmmo)
+
+					if ammobox:GetResource() <= 0 then
+						timer.Simple(0.1, function()
+							SafeRemoveEntity(ammobox)
+						end)
+					end
+
+					self.WEAPONS[PodID][ id ]._CurAmmo = math.min( CurAmmo + (MaxAmmo - CurAmmo), MaxAmmo )
+					AmmoIsSet = true
+				else
+					self.WEAPONS[PodID][ id ]._CurAmmo = math.min( CurAmmo + ammobox:GetResource(), MaxAmmo )
+					SafeRemoveEntity(ammobox)
+					AmmoIsSet = true
+				end
+			end
+		end
+
+		if AmmoIsSet then
+			self:SetNWAmmo( self:GetAmmo() )
+
+			for _, pod in pairs( self:GetPassengerSeats() ) do
+				local weapon = pod:lvsGetWeapon()
+
+				if not IsValid( weapon ) then continue end
+
+				weapon:SetNWAmmo( weapon:GetAmmo() )
+			end
+
+			JMod.ResourceEffect(ammobox.EZsupplies, ammobox:LocalToWorld(ammobox:OBBCenter()), self:LocalToWorld(self:OBBCenter()), ammobox:GetResource(), 1, 1, 1)
+			self:OnRefueled()
+		end
+	end
+end
+
+function ENT:TakeCustomBomb(data, physobj)
+	local ent = data.HitEntity
+	local Ammo = self:GetAmmo()
+	local MaxAmmo = self:GetMaxAmmo() 
+
+	local RefilBlackList = {
+		["lvs_trailer_schneider"] = true,
+		["lvs_wheeldrive_pz1bison"] = true,
+	}
+
+	if not RefilBlackList[self:GetClass()] then return end
+	
+	if ( data.Speed > 50 ) 
+	and self.AmmoWhiteList[ent:GetClass()] and Ammo < MaxAmmo then  
+
+		for PodID, data in pairs( self.WEAPONS ) do
+			for id, weapon in pairs( data ) do
+				local MaxAmmo = weapon.Ammo or -1
+				local CurAmmo = weapon._CurAmmo or MaxAmmo
+	
+				if CurAmmo == MaxAmmo then continue end
+	
+				self.WEAPONS[PodID][ id ]._CurAmmo = math.min( CurAmmo + 1, MaxAmmo )
+	
+				AmmoIsSet = true
+			end
+		end
+	
+		if AmmoIsSet then
+			self:SetNWAmmo( self:GetAmmo() )
+	
+			for _, pod in pairs( self:GetPassengerSeats() ) do
+				local weapon = pod:lvsGetWeapon()
+	
+				if not IsValid( weapon ) then continue end
+	
+				weapon:SetNWAmmo( weapon:GetAmmo() )
+			end
+		end
+
+		self:EmitSound("items/ammo_pickup.wav")
+
+		table.insert(self.AmmoTable, ent:GetClass())
+
+		PrintTable(self.AmmoTable)
+
+		ent:Remove()
 	end
 end

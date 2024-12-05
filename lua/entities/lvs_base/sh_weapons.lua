@@ -198,6 +198,7 @@ if SERVER then
 	function ENT:CanAttack()
 		local CurWeapon = self:GetActiveWeapon()
 
+
 		return (CurWeapon._NextFire or 0) < CurTime()
 	end
 
@@ -213,6 +214,8 @@ if SERVER then
 		local ply = self:GetDriver()
 
 		if not IsValid( ply ) then return false end
+
+		if not self:GetEngineActive() and self:GetVehicleType() ~= "LBaseTrailer" then return false end
 
 		return ply:lvsKeyDown( "ATTACK" )
 	end

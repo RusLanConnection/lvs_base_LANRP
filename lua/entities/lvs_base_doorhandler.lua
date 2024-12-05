@@ -52,7 +52,6 @@ end
 function ENT:IsOpen()
 	return self:GetActive()
 end
-
 function ENT:InRange( ply, Range )
 	local boxOrigin = self:GetPos()
 	local boxAngles = self:GetAngles()

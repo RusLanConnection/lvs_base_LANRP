@@ -96,7 +96,6 @@ function EFFECT:Init( data )
 	flash:SetEndSize( 0 )
 	flash:SetDieTime( 0.075 )
 	flash:SetStartSize( 300 * magnitude ^ 2 )
-	
 	if self.SparkSurface[ surfaceName ] then
 		if IsValid( ent ) and ent.LVS then
 			if (90 - math.deg( math.acos( math.Clamp( -dir:Dot( bullet_dir ) ,-1,1) ) )) > 10 then

@@ -175,6 +175,7 @@ function ENT:CalcDamage( dmginfo )
 
 	if dmginfo:GetDamageForce():Length() < self.DSArmorIgnoreForce and not IsFireDamage then return end
 
+	
 	if not IsCollisionDamage then
 		CriticalHit = self:CalcComponentDamage( dmginfo )
 	end
@@ -208,7 +209,6 @@ function ENT:CalcDamage( dmginfo )
 	if NewHealth <= 0 then
 		self.FinalAttacker = dmginfo:GetAttacker() 
 		self.FinalInflictor = dmginfo:GetInflictor()
-
 		self:SetDestroyed( IsCollisionDamage )
 
 		self:ClearPDS()

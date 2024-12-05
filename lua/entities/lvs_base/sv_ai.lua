@@ -55,7 +55,6 @@ end
 
 function ENT:AITargetInFront( ent, range )
 	if not IsValid( ent ) then return false end
-
 	if not range then range = 45 end
 
 	if range >= 180 then return true end

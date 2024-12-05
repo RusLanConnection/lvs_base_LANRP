@@ -20,6 +20,7 @@ ENT.MDL = "models/props_c17/trappropeller_engine.mdl"
 ENT.AITEAM = 0
 
 ENT.MaxHealth = 100
+ENT.MaxFuel = 400
 ENT.MaxShield = 0
 
 ENT.SpawnNormalOffset = 15

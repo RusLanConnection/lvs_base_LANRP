@@ -20,7 +20,6 @@ function ENT:LVSHudPaintSeatSwitcher( X, Y, w, h, ScrX, ScrY, ply )
 
 	local HasAI = self:GetAI()
 	local HasAIGunners = self:GetAIGunners()
-
 	local MySeat = ply:GetVehicle():GetNWInt( "pPodIndex", -1 )
 
 	local Passengers = {}
