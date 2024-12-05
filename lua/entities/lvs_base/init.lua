@@ -18,6 +18,7 @@ include("sv_physics_damagesystem.lua")
 include("sv_damagesystem.lua")
 include("sv_shieldsystem.lua")
 include("sv_doorsystem.lua")
+--include("sv_jmod.lua")
 
 ENT.WaterLevelPreventStart = 1
 ENT.WaterLevelAutoStop = 2
@@ -117,7 +118,6 @@ function ENT:PostInitialize( PObj )
 	end)
 
 	self:SetlvsReady( true )
-	self:GetCrosshairFilterEnts()
 
 	self:OnSpawnFinish( PObj )
 end
@@ -197,7 +197,7 @@ function ENT:IsUseAllowed( ply )
 
 	if (ply._lvsNextUse or 0) > CurTime() then return false end
 
-	if self:GetlvsLockedStatus() or (LVS.TeamPassenger and ((self:GetAITEAM() ~= ply:lvsGetAITeam()) and ply:lvsGetAITeam() ~= 0 and self:GetAITEAM() ~= 0)) then 
+	if self:GetlvsLockedStatus() or (LVS.TeamPassenger:GetBool() and ((self:GetAITEAM() ~= ply:lvsGetAITeam()) and ply:lvsGetAITeam() ~= 0 and self:GetAITEAM() ~= 0)) then 
 		self:EmitSound( "doors/default_locked.wav" )
 
 		return false
@@ -290,7 +290,6 @@ function ENT:OnTakeDamage( dmginfo )
 	self:CalcDamage( dmginfo )
 	self:TakePhysicsDamage( dmginfo )
 	self:OnAITakeDamage( dmginfo )
-	self:RemoveAllDecals()
 end
 
 function ENT:OnMaintenance()
@@ -322,9 +321,7 @@ function ENT:RebuildCrosshairFilterEnts()
 end
 
 function ENT:GetCrosshairFilterEnts()
-	if not self:IsInitialized() then return { self } end
-
-	if not istable( self.CrosshairFilterEnts ) then
+	if not istable( self.CrosshairFilterEnts ) or not self:IsInitialized() then
 		self.CrosshairFilterEnts = {}
 
 		for _, Entity in pairs( constraint.GetAllConstrainedEntities( self ) ) do

@@ -41,11 +41,13 @@ if SERVER then
 
 		if entity:WeaponRestoreAmmo() then
 			entity:EmitSound("items/ammo_pickup.wav")
-
-			self.MarkForRemove = true
-
-			SafeRemoveEntityDelayed( self, 0 )
 		end
+
+		entity:OnMaintenance()
+
+		self.MarkForRemove = true
+
+		SafeRemoveEntityDelayed( self, 0 )
 	end
 
 	function ENT:PhysicsCollide( data, physobj )

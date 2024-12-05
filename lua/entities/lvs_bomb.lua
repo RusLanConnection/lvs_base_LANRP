@@ -42,8 +42,8 @@ if SERVER then
 	end
 
 	function ENT:GetAttacker() return self._attacker or NULL end
-	function ENT:GetDamage() return (self._dmg or 2000) end
-	function ENT:GetRadius() return (self._radius or 400) end
+	function ENT:GetDamage() return self._dmg or 2000 end
+	function ENT:GetRadius() return self._radius or 400 end
 
 	function ENT:Initialize()
 		self:SetModel( "models/props_phx/ww2bomb.mdl" )
@@ -141,7 +141,6 @@ if SERVER then
 	ENT.IgnoreCollisionGroup = {
 		[COLLISION_GROUP_NONE] = true,
 		[COLLISION_GROUP_WORLD] =  true,
-		[COLLISION_GROUP_IN_VEHICLE] = true
 	}
 
 	function ENT:StartTouch( entity )
@@ -165,7 +164,7 @@ if SERVER then
 	function ENT:PhysicsCollide( data )
 		if istable( self._FilterEnts ) and self._FilterEnts[ data.HitEntity ] then return end
 
-		self:Detonate( data.HitEntity )
+		self:Detonate()
 	end
 
 	function ENT:OnTakeDamage( dmginfo )	
@@ -180,18 +179,11 @@ if SERVER then
 
 		local effectdata = EffectData()
 			effectdata:SetOrigin( Pos )
+			effectdata:SetScale( self:GetRadius() / 100)
 		util.Effect( self.ExplosionEffect, effectdata )
 
 		if IsValid( target ) and not target:IsNPC() then
 			Pos = target:GetPos() -- place explosion inside the hit targets location so they receive full damage. This fixes all the garbage code the LFS' missile required in order to deliver its damage
-
-			if isfunction( target.GetBase ) then
-				local Base = target:GetBase()
-
-				if IsValid( Base ) and isentity( Base ) then
-					Pos = Base:GetPos()
-				end
-			end
 		end
 
 		local attacker = self:GetAttacker()
@@ -280,7 +272,6 @@ function ENT:OnRemove()
 end
 
 local color_red = Color(255,0,0,255)
-local color_red_blocked = Color(100,0,0,255)
 local HudTargets = {}
 hook.Add( "HUDPaint", "!!!!lvs_bomb_hud", function()
 	for ID, _ in pairs( HudTargets ) do
@@ -293,12 +284,10 @@ hook.Add( "HUDPaint", "!!!!lvs_bomb_hud", function()
 		end
 
 		local Grav = physenv.GetGravity()
-		local FT = 0.05
-		local MissilePos = Missile:GetPos()
-		local Pos = MissilePos
+		local FT = 0.05 -- RealFrameTime()
+		local Pos = Missile:GetPos()
 		local Vel = Missile:GetSpeed()
 
-		local LastColor = color_red
 		local Mask = Missile.GetMaskSolid and (Missile:GetMaskSolid() and MASK_SOLID or MASK_SOLID_BRUSHONLY) or MASK_SOLID_BRUSHONLY
 
 		cam.Start3D()
@@ -317,15 +306,7 @@ hook.Add( "HUDPaint", "!!!!lvs_bomb_hud", function()
 				mask = Mask,
 			} )
 
-			local traceVisible = util.TraceLine( {
-				start = MissilePos,
-				endpos = StartPos,
-				mask = Mask,
-			} )
-
-			LastColor = traceVisible.Hit and color_red_blocked or color_red
-
-			render.DrawLine( StartPos, EndPos, LastColor )
+			render.DrawLine( StartPos, EndPos, color_red )
 
 			Pos = EndPos
 
@@ -339,7 +320,7 @@ hook.Add( "HUDPaint", "!!!!lvs_bomb_hud", function()
 
 		if not TargetPos.visible then continue end
 
-		surface.DrawCircle( TargetPos.x, TargetPos.y, 20, LastColor )
+		surface.DrawCircle( TargetPos.x, TargetPos.y, 20, color_red )
 	end
 end )
 

@@ -9,7 +9,7 @@ LVS:AddHudEditor( "SeatSwitcher", ScrW() - 360, 10,  350, 30, 350, 30, "SEAT SWI
 )
 
 function ENT:LVSHudPaintSeatSwitcher( X, Y, w, h, ScrX, ScrY, ply )
-	local pSeats = table.Copy( self:GetPassengerSeats() )
+	local pSeats = self:GetPassengerSeats()
 	local SeatCount = table.Count( pSeats ) 
 
 	if SeatCount <= 0 then return end
@@ -19,8 +19,6 @@ function ENT:LVSHudPaintSeatSwitcher( X, Y, w, h, ScrX, ScrY, ply )
 	draw.NoTexture() 
 
 	local HasAI = self:GetAI()
-	local HasAIGunners = self:GetAIGunners()
-
 	local MySeat = ply:GetVehicle():GetNWInt( "pPodIndex", -1 )
 
 	local Passengers = {}
@@ -33,9 +31,7 @@ function ENT:LVSHudPaintSeatSwitcher( X, Y, w, h, ScrX, ScrY, ply )
 
 	if HasAI then
 		Passengers[1] = "[AI] "..self.PrintName
-	end
 
-	if HasAIGunners then
 		for _, Pod in pairs( self:GetPassengerSeats() ) do
 			if IsValid( Pod:GetDriver() ) then continue end
 	

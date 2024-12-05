@@ -20,6 +20,7 @@ ENT.MDL = "models/props_c17/trappropeller_engine.mdl"
 ENT.AITEAM = 0
 
 ENT.MaxHealth = 100
+ENT.MaxFuel = 400
 ENT.MaxShield = 0
 
 ENT.SpawnNormalOffset = 15
@@ -51,29 +52,10 @@ function ENT:CreateBaseDT()
 
 	self:AddDT( "Bool", "Active" )
 	self:AddDT( "Bool", "EngineActive" )
+
 	self:AddDT( "Bool", "AI",	{ KeyName = "aicontrolled",	Edit = { type = "Boolean",	order = 1,	category = "AI"} } )
-
-	local ShowAIGunnerInMenu = false
-
-	if istable( self.WEAPONS ) then
-		for id, _ in pairs( self.WEAPONS ) do
-			if id == 1 then continue end
-
-			ShowAIGunnerInMenu = true
-
-			break
-		end
-	end
-
-	if ShowAIGunnerInMenu then
-		self:AddDT( "Bool", "AIGunners",	{ KeyName = "aigunners",	Edit = { type = "Boolean",	order = 2,	category = "AI"} } )
-	else
-		self:AddDT( "Bool", "AIGunners" )
-	end
-
 	self:AddDT( "Bool", "lvsLockedStatus" )
 	self:AddDT( "Bool", "lvsReady" )
-	self:AddDT( "Bool", "NWOverheated" )
 
 	self:AddDT( "Int", "AITEAM", { KeyName = "aiteam", Edit = { type = "Int", order = 2,min = 0, max = 3, category = "AI"} } )
 	self:AddDT( "Int", "SelectedWeapon" )
@@ -195,7 +177,7 @@ function ENT:GetPassengerSeat( num )
 
 			if not IsValid( Pod ) then continue end
 
-			local id = Pod:lvsGetPodIndex()
+			local id = Pod:GetNWInt( "pPodIndex", -1 )
 
 			if id == -1 then continue end
 
@@ -254,7 +236,7 @@ function ENT:GetPassenger( num )
 				return NULL
 			end
 
-			local id = Pod:lvsGetPodIndex()
+			local id = Pod:GetNWInt( "pPodIndex", -1 )
 
 			if id == -1 then continue end
 

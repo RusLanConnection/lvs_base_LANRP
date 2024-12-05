@@ -25,21 +25,31 @@ function ENT:GetAimVector()
 	end
 end
 
-function ENT:RunAI()
-	local EntTable = self:GetTable()
+function ENT:AITargetInFront( ent, range )
+	if not IsValid( ent ) then return false end
 
-	local Target = self:AIGetTarget( EntTable )
+	if not range then range = 45 end
+
+	local DirToTarget = (ent:GetPos() - self:GetPos()):GetNormalized()
+
+	local InFront = math.deg( math.acos( math.Clamp( self:GetForward():Dot( DirToTarget ) ,-1,1) ) ) < range
+
+	return InFront
+end
+
+function ENT:RunAI()
+	local Target = self:AIGetTarget()
 
 	if not IsValid( Target ) then
-		EntTable._ai_look_dir = self:GetForward()
-		EntTable._AIFireInput = false
+		self._ai_look_dir = self:GetForward()
+		self._AIFireInput = false
 
 		return
 	end
 
 	local TargetPos = Target:GetPos()
 
-	if EntTable._AIFireInput then
+	if self._AIFireInput then
 		local T = CurTime() * 0.5 + self:EntIndex()
 		local X = math.cos( T ) * 32
 		local Y = math.sin( T ) * 32
@@ -47,52 +57,35 @@ function ENT:RunAI()
 		TargetPos = Target:LocalToWorld( Target:OBBCenter() + Vector(X,Y,Z) )
 	end
 
-	EntTable._ai_look_dir = (TargetPos - self:GetPos()):GetNormalized()
+	self._ai_look_dir = (TargetPos - self:GetPos()):GetNormalized()
 
 	local StartPos = self:GetPos()
 
 	local trace = util.TraceHull( {
 		start =  StartPos,
-		endpos = (StartPos + EntTable._ai_look_dir * 50000),
+		endpos = (StartPos + self._ai_look_dir * 50000),
 		mins = Vector( -50, -50, -50 ),
 		maxs = Vector( 50, 50, 50 ),
 		filter = self:GetCrosshairFilterEnts()
 	} )
 
 	if not self:AIHasWeapon( self:GetSelectedWeapon() ) then
-		EntTable._AIFireInput = false
+		self._AIFireInput = false
 
 		return
 	end
 
 	if IsValid( trace.Entity ) and trace.Entity.GetAITEAM then
-		EntTable._AIFireInput = (trace.Entity:GetAITEAM() ~= self:GetAITEAM() or trace.Entity:GetAITEAM() == 0)
+		self._AIFireInput = (trace.Entity:GetAITEAM() ~= self:GetAITEAM() or trace.Entity:GetAITEAM() == 0)
 	else
-		EntTable._AIFireInput = true
+		self._AIFireInput = true
 	end
 end
 
-function ENT:AIGetTarget( EntTable )
+function ENT:AIGetTarget()
 	local Base = self:GetVehicle()
 
 	if not IsValid( Base ) then return NULL end
 
-	if Base:GetAI() then
-		return Base:AIGetTarget()
-	end
-
-	if not isnumber( EntTable.ViewConeAdd ) then
-		EntTable.ViewConeAdd = math.min( 100 + math.abs( Base:WorldToLocalAngles( self:GetAngles() ).y ), 360 )
-	end
-
-	return Base:AIGetTarget( EntTable.ViewConeAdd )
+	return Base:AIGetTarget()
 end
-
-function ENT:AITargetInFront( ent, range )
-	local Base = self:GetVehicle()
-
-	if not IsValid( Base ) then return NULL end
-
-	return Base:AITargetInFront( ent, range )
-end
-

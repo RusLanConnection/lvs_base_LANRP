@@ -7,8 +7,6 @@ ENT.RenderGroup = RENDERGROUP_BOTH
 
 ENT.UseRange = 75
 
-ENT._UseTargetAllowed = true
-
 function ENT:SetupDataTables()
 	self:NetworkVar( "Entity",0, "Base" )
 
@@ -53,17 +51,6 @@ function ENT:IsOpen()
 	return self:GetActive()
 end
 
-function ENT:InRange( ply, Range )
-	local boxOrigin = self:GetPos()
-	local boxAngles = self:GetAngles()
-	local boxMins = self:GetMins()
-	local boxMaxs = self:GetMaxs()
-
-	local HitPos, _, _ = util.IntersectRayWithOBB( ply:GetShootPos(), ply:GetAimVector() * Range, boxOrigin, boxAngles, boxMins, boxMaxs )
-
-	return isvector( HitPos )
-end
-
 if SERVER then
 	AccessorFunc(ENT, "soundopen", "SoundOpen", FORCE_STRING)
 	AccessorFunc(ENT, "soundclose", "SoundClose", FORCE_STRING)
@@ -82,13 +69,9 @@ if SERVER then
 
 		local ent = net.ReadEntity()
 
-		if not IsValid( ent ) or not ent._UseTargetAllowed or not ent.UseRange or ply:InVehicle() then return end
+		if not IsValid( ent ) then return end
 
-		local Range = ent.UseRange * 2
-
-		if (ply:GetPos() - ent:GetPos()):Length() > Range then return end
-
-		if not ent:InRange( ply, Range ) then return end
+		if (ply:GetPos() - ent:GetPos()):Length() > (ent.UseRange or 75) * 2 then return end
 
 		ent:Use( ply, ply )
 	end)
@@ -322,11 +305,18 @@ function ENT:DrawTranslucent()
 
 	if not IsValid( ply ) or ply:InVehicle() or not ply:KeyDown( IN_SPEED ) then return end
 
-	local InRange = self:InRange( ply, self.UseRange )
+	local boxOrigin = self:GetPos()
+	local boxAngles = self:GetAngles()
+	local boxMins = self:GetMins()
+	local boxMaxs = self:GetMaxs()
+
+	local EntTable = self:GetTable()
+
+	local HitPos, _, _ = util.IntersectRayWithOBB( ply:GetShootPos(), ply:GetAimVector() * EntTable.UseRange, boxOrigin, boxAngles, boxMins, boxMaxs )
+
+	local InRange = isvector( HitPos )
 
 	if InRange then
-		local EntTable = self:GetTable()
-
 		local Use = ply:KeyDown( IN_USE )
 
 		if EntTable.old_Use ~= Use then
@@ -341,13 +331,6 @@ function ENT:DrawTranslucent()
 	end
 
 	if not LVS.DeveloperEnabled then return end
-
-	local boxOrigin = self:GetPos()
-	local boxAngles = self:GetAngles()
-	local boxMins = self:GetMins()
-	local boxMaxs = self:GetMaxs()
-
-	local EntTable = self:GetTable()
 
 	local Col = InRange and EntTable.ColorSelect or EntTable.ColorNormal
 

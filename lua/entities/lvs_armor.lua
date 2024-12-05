@@ -85,6 +85,7 @@ if SERVER then
 			end
 		end
 	
+		print(DamageForce, ArmorEffective)
 		if DamageForce <= ArmorEffective then
 			local T = CurTime()
 
@@ -112,8 +113,8 @@ if SERVER then
 
 			if (self._NextBounce or 0) > T or DisableBounce then
 				local effectdata = EffectData()
-					effectdata:SetOrigin( trace.HitPos )
-					effectdata:SetNormal( NewDir:GetNormalized() * 0.25 )
+				effectdata:SetOrigin( trace.HitPos )
+				effectdata:SetNormal( NewDir:GetNormalized() * 0.25 )
 				util.Effect( "manhacksparks", effectdata, true, true )
 
 				return false
